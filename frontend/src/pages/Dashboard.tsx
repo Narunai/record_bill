@@ -49,6 +49,10 @@ const Dashboard: React.FC = () => {
     return transaction.amount_text?.trim() || transaction.amount.toLocaleString();
   };
 
+  const formatAmountTotal = (transaction: Transaction) => {
+    return transaction.amount.toLocaleString();
+  };
+
   const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
   useEffect(() => {
@@ -962,11 +966,15 @@ const Dashboard: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="text-right">
-                      <p className={`font-black text-sm tracking-tight ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                        {t.type === 'income' ? '+' : '-'}{formatAmountDisplay(t)}
+                    <div className="text-right max-w-[10rem] sm:max-w-[12rem]">
+                      <p className={`font-black text-sm tracking-tight leading-tight whitespace-normal break-words ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                        <span className="block">
+                          {t.type === 'income' ? '+' : '-'}{formatAmountDisplay(t)}
+                        </span>
+                        <span className="block text-[10px] font-extrabold text-gray-400 mt-0.5">
+                          รวม {formatAmountTotal(t)} THB
+                        </span>
                       </p>
-                      <p className="text-[8px] text-gray-400 font-bold uppercase tracking-wider">THB</p>
                     </div>
                     <div className="flex items-center gap-1">
                       <button
