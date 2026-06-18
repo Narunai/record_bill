@@ -1,63 +1,106 @@
+from typing import Optional
+
+import jwt as pyjwt
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt import InvalidTokenError, PyJWKClient
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
-from datetime import timedelta
+
+from ..core.config import get_supabase_issuer, get_supabase_jwks_url, settings
 from ..database import get_db
 from ..models import models
 from ..schemas import schemas
-from ..core import security
-from ..core.config import settings
-from jose import JWTError, jwt
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+bearer_scheme = HTTPBearer(auto_error=False)
 
-async def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
+
+def _get_jwks_client() -> PyJWKClient:
+    jwks_url = get_supabase_jwks_url()
+    if not jwks_url:
+        raise RuntimeError("SUPABASE_URL or SUPABASE_JWKS_URL must be configured")
+    return PyJWKClient(jwks_url)
+
+
+def _decode_supabase_token(token: str) -> dict:
+    issuer = get_supabase_issuer()
+    if not issuer:
+        raise RuntimeError("SUPABASE_URL or SUPABASE_JWT_ISSUER must be configured")
+
+    signing_key = _get_jwks_client().get_signing_key_from_jwt(token)
+    return pyjwt.decode(
+        token,
+        signing_key.key,
+        algorithms=["RS256"],
+        audience=settings.SUPABASE_JWT_AUDIENCE,
+        issuer=issuer,
     )
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-        token_data = schemas.TokenData(email=email)
-    except JWTError:
-        raise credentials_exception
-    user = db.query(models.User).filter(models.User.email == token_data.email).first()
-    if user is None:
-        raise credentials_exception
-    return user
 
-@router.post("/signup", response_model=schemas.User)
-def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    hashed_password = security.get_password_hash(user.password)
-    new_user = models.User(
-        email=user.email,
-        hashed_password=hashed_password,
-        full_name=user.full_name
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return new_user
 
-@router.post("/login", response_model=schemas.Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == form_data.username).first()
-    if not user or not security.verify_password(form_data.password, user.hashed_password):
+def _extract_full_name(payload: dict) -> Optional[str]:
+    metadata = payload.get("user_metadata") or {}
+    if isinstance(metadata, dict):
+        return metadata.get("full_name") or metadata.get("name")
+    return None
+
+
+async def get_current_user(
+    db: Session = Depends(get_db),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+):
+    if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = security.create_access_token(
-        subject=user.email, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
+
+    try:
+        payload = _decode_supabase_token(credentials.credentials)
+    except (InvalidTokenError, RuntimeError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user_id = payload.get("sub")
+    email = payload.get("email")
+    if not user_id or not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user is None:
+        user = models.User(
+            id=user_id,
+            email=email,
+            full_name=_extract_full_name(payload),
+        )
+        db.add(user)
+    else:
+        user.email = email
+        full_name = _extract_full_name(payload)
+        if full_name:
+            user.full_name = full_name
+
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to sync user profile",
+        )
+
+    db.refresh(user)
+    return user
+
+
+@router.get("/me", response_model=schemas.User)
+def read_me(current_user: models.User = Depends(get_current_user)):
+    return current_user

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
 import { LogIn, UserPlus, Wallet } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const Login: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -12,30 +12,58 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
 
   React.useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      navigate('/');
-    }
+    const initSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) {
+        localStorage.setItem('token', data.session.access_token);
+        navigate('/');
+      }
+    };
+
+    initSession();
   }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
     try {
       if (isLogin) {
-        const formData = new FormData();
-        formData.append('username', email);
-        formData.append('password', password);
-        const response = await api.post('/auth/login', formData);
-        localStorage.setItem('token', response.data.access_token);
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (signInError) throw signInError;
+        if (!data.session?.access_token) {
+          throw new Error('No session returned from Supabase');
+        }
+
+        localStorage.setItem('token', data.session.access_token);
         navigate('/');
       } else {
-        await api.post('/auth/signup', { email, password, full_name: fullName });
-        setIsLogin(true);
-        setError('สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบ');
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName,
+            },
+          },
+        });
+
+        if (signUpError) throw signUpError;
+
+        if (data.session?.access_token) {
+          localStorage.setItem('token', data.session.access_token);
+          navigate('/');
+        } else {
+          setIsLogin(true);
+          setError('สมัครสมาชิกสำเร็จแล้ว กรุณาตรวจอีเมลหรือเข้าสู่ระบบ');
+        }
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'เกิดข้อผิดพลาด');
+      setError(err.message || 'เกิดข้อผิดพลาด');
     }
   };
 
@@ -52,7 +80,7 @@ const Login: React.FC = () => {
 
         {error && (
           <div className={`p-4 rounded-2xl mb-6 text-sm font-medium flex items-center ${error.includes('สำเร็จ') ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
-            <span className="mr-2">●</span>
+            <span className="mr-2">!</span>
             {error}
           </div>
         )}
@@ -63,7 +91,7 @@ const Login: React.FC = () => {
               <label className="block text-sm font-semibold text-gray-700 mb-1.5 ml-1">ชื่อ-นามสกุล</label>
               <input
                 type="text"
-                placeholder="สมชาย มั่นคง"
+                placeholder="เช่น สมชาย มั่นคง"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 focus:bg-white outline-none transition-all"
@@ -109,17 +137,9 @@ const Login: React.FC = () => {
               <div className="w-full border-t border-gray-100"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-3 bg-white text-gray-400 font-medium">หรือเข้าใช้งานผ่าน</span>
+              <span className="px-3 bg-white text-gray-400 font-medium">หรือใช้บัญชีของคุณ</span>
             </div>
           </div>
-
-          <button
-            onClick={() => {/* Implement Google Login later */}}
-            className="w-full flex justify-center items-center py-3.5 px-6 border border-gray-200 rounded-2xl shadow-sm bg-white text-gray-700 hover:bg-gray-50 active:scale-[0.98] transition-all font-semibold"
-          >
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5 mr-3" alt="Google" />
-            Google Account
-          </button>
 
           <button
             onClick={() => setIsLogin(!isLogin)}

@@ -4,8 +4,8 @@ sqlalchemy-utils
 pydantic
 pydantic-settings
 python-jose[cryptography]
-passlib[bcrypt]==1.7.4
-bcrypt==4.1.1
+PyJWT[crypto]
+psycopg2-binary
 python-multipart
 alembic
 sqlite-utils

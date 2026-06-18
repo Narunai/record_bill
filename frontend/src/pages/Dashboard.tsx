@@ -4,6 +4,7 @@ import api from '../services/api';
 import { Plus, Wallet, ArrowUpCircle, ArrowDownCircle, LogOut, Calendar, ChevronLeft, ChevronRight, Download, PencilLine, Trash2, Save, X } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
 import { th } from 'date-fns/locale';
+import { supabase } from '../lib/supabase';
 
 interface Transaction {
   id: string;
@@ -331,8 +332,10 @@ const Dashboard: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/login');
+    supabase.auth.signOut().finally(() => {
+      localStorage.removeItem('token');
+      navigate('/login');
+    });
   };
 
   const handleDownloadCSV = (scope: 'all' | 'current') => {

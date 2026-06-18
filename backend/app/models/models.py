@@ -12,7 +12,7 @@ class User(Base):
     id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String, nullable=True)
-    full_name = Column(String)
+    full_name = Column(String, nullable=True)
     google_id = Column(String, nullable=True)
 
 class Transaction(Base):
@@ -24,4 +24,4 @@ class Transaction(Base):
     amount = Column(Float)
     category = Column(String)
     note = Column(String, nullable=True)
-    date = Column(DateTime, default=lambda: datetime.now(THAILAND_TZ))
+    date = Column(DateTime(timezone=True), default=lambda: datetime.now(THAILAND_TZ))
