@@ -32,7 +32,7 @@ const AddTransaction: React.FC = () => {
       await api.post('/transactions/', {
         type,
         amount,
-        amount_text: amount.replace(/\s+/g, ''),
+        amount_text: amount,
         category,
         note,
         date: format(new Date(), "yyyy-MM-dd'T'HH:mm:ss")
@@ -91,8 +91,8 @@ const AddTransaction: React.FC = () => {
             <span className={`text-4xl font-black mb-3 mr-3 transition-colors duration-500 ${type === 'expense' ? 'text-red-500' : 'text-green-500'}`}>฿</span>
             <input
               type="text"
-              inputMode="numeric"
-              placeholder="200+500+1000"
+              inputMode="text"
+              placeholder="200+500+1000 / 200 500 1000 / ค่าอาหาร 200 ข้าว 500"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="w-full text-6xl font-black bg-transparent focus:outline-none transition-all placeholder:text-gray-100 tracking-tighter"
@@ -101,7 +101,7 @@ const AddTransaction: React.FC = () => {
             />
           </div>
           <p className="text-xs font-medium text-gray-400 mt-2">
-            พิมพ์หลายรายการด้วย `+` เช่น `200+500+1000`
+            พิมพ์ได้ทั้ง `200+500+1000`, `200 500 1000` หรือ `ค่าอาหาร 200 ข้าว 500`
           </p>
         </div>
 

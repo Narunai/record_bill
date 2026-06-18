@@ -97,7 +97,7 @@ const Dashboard: React.FC = () => {
       await api.put(`/transactions/${editingTransactionId}`, {
         type: editForm.type,
         amount: editForm.amount,
-        amount_text: editForm.amount.replace(/\s+/g, ''),
+        amount_text: editForm.amount,
         category: editForm.category,
         note: editForm.note,
         date: new Date(editForm.date).toISOString(),
@@ -1142,8 +1142,8 @@ const Dashboard: React.FC = () => {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">จำนวนเงิน</label>
                 <input
-                  type="number"
-                  inputMode="decimal"
+                  type="text"
+                  inputMode="text"
                   value={editForm.amount}
                   onChange={(e) => setEditForm((prev) => ({ ...prev, amount: e.target.value }))}
                   className="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500"

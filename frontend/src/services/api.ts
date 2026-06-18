@@ -82,14 +82,15 @@ function dateRangeForQuery(searchParams: URLSearchParams) {
 }
 
 function normalizeAmount(amount: number | string, amountText?: string) {
-  const raw = (amountText ?? String(amount)).replace(/\s+/g, '');
+  const raw = (amountText ?? String(amount)).trim();
   if (!raw) {
     throw createHttpError(400, 'Missing amount');
   }
 
-  const parts = raw.split('+').map((part) => part.trim()).filter(Boolean);
-  const values = parts.map((part) => {
-    const value = Number(part);
+  const matches = raw.match(/\d[\d,]*(?:\.\d+)?/g);
+  const values = (matches ?? []).map((part) => {
+    const normalizedPart = part.replace(/,/g, '');
+    const value = Number(normalizedPart);
     if (!Number.isFinite(value)) {
       throw createHttpError(400, `Invalid amount part: ${part}`);
     }
@@ -97,13 +98,20 @@ function normalizeAmount(amount: number | string, amountText?: string) {
   });
 
   if (values.length === 0) {
-    throw createHttpError(400, 'Missing amount');
+    const numericFallback = Number(raw.replace(/,/g, ''));
+    if (!Number.isFinite(numericFallback)) {
+      throw createHttpError(400, 'Missing amount');
+    }
+    return {
+      total: numericFallback,
+      display: String(numericFallback),
+    };
   }
 
   const total = values.reduce((sum, value) => sum + value, 0);
   return {
     total,
-    display: raw,
+    display: values.map((value) => String(value)).join('+'),
   };
 }
 
