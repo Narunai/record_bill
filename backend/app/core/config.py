@@ -8,7 +8,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 52560000  # 100 years in minutes
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
-    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    CORS_ORIGINS: str = (
+        "http://localhost:5173,"
+        "http://127.0.0.1:5173,"
+        "https://narunai.github.io"
+    )
 
     class Config:
         env_file = ".env"
