@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
+from .core.config import get_cors_origins
 from .routers import auth, transactions
 from .models import models
 
@@ -10,14 +11,9 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Income/Expense Tracker API")
 
 # Configure CORS
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
