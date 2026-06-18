@@ -25,6 +25,53 @@ def create_transaction(
     db.refresh(db_transaction)
     return db_transaction
 
+@router.put("/{transaction_id}", response_model=schemas.Transaction)
+def update_transaction(
+    transaction_id: str,
+    transaction: schemas.TransactionUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_transaction = (
+        db.query(models.Transaction)
+        .filter(
+            models.Transaction.id == transaction_id,
+            models.Transaction.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not db_transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    update_data = transaction.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_transaction, field, value)
+
+    db.commit()
+    db.refresh(db_transaction)
+    return db_transaction
+
+@router.delete("/{transaction_id}", status_code=204)
+def delete_transaction(
+    transaction_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_transaction = (
+        db.query(models.Transaction)
+        .filter(
+            models.Transaction.id == transaction_id,
+            models.Transaction.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not db_transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    db.delete(db_transaction)
+    db.commit()
+    return None
+
 @router.get("/", response_model=List[schemas.Transaction])
 def get_transactions(
     date: Optional[str] = None,

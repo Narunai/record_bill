@@ -36,6 +36,13 @@ class TransactionBase(BaseModel):
 class TransactionCreate(TransactionBase):
     pass
 
+class TransactionUpdate(BaseModel):
+    type: Optional[TransactionType] = None
+    amount: Optional[float] = None
+    category: Optional[str] = None
+    note: Optional[str] = None
+    date: Optional[datetime] = None
+
 class Transaction(TransactionBase):
     id: str
     user_id: str

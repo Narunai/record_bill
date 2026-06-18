@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { Plus, Wallet, ArrowUpCircle, ArrowDownCircle, LogOut, Calendar, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { Plus, Wallet, ArrowUpCircle, ArrowDownCircle, LogOut, Calendar, ChevronLeft, ChevronRight, Download, PencilLine, Trash2, Save, X } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
 import { th } from 'date-fns/locale';
 
@@ -11,6 +11,14 @@ interface Transaction {
   amount: number;
   category: string;
   note?: string;
+  date: string;
+}
+
+interface TransactionFormState {
+  type: 'income' | 'expense';
+  amount: string;
+  category: string;
+  note: string;
   date: string;
 }
 
@@ -24,6 +32,15 @@ const Dashboard: React.FC = () => {
   const [selectorZoomMode, setSelectorZoomMode] = useState<'day' | 'month' | 'year' | 'decade'>('day');
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<TransactionFormState>({
+    type: 'expense',
+    amount: '',
+    category: '',
+    note: '',
+    date: '',
+  });
   const navigate = useNavigate();
 
   const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
@@ -46,6 +63,54 @@ const Dashboard: React.FC = () => {
       navigate('/login');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openEditModal = (transaction: Transaction) => {
+    setEditingTransactionId(transaction.id);
+    setEditForm({
+      type: transaction.type,
+      amount: transaction.amount.toString(),
+      category: transaction.category,
+      note: transaction.note ?? '',
+      date: format(new Date(transaction.date), "yyyy-MM-dd'T'HH:mm"),
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingTransactionId(null);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTransactionId || !editForm.amount || !editForm.category || !editForm.date) return;
+
+    try {
+      await api.put(`/transactions/${editingTransactionId}`, {
+        type: editForm.type,
+        amount: parseFloat(editForm.amount),
+        category: editForm.category,
+        note: editForm.note,
+        date: new Date(editForm.date).toISOString(),
+      });
+      closeEditModal();
+      await fetchData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteTransaction = async (transaction: Transaction) => {
+    const confirmed = window.confirm(`ต้องการลบรายการ "${transaction.category}" ใช่หรือไม่?`);
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/transactions/${transaction.id}`);
+      await fetchData();
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -872,7 +937,7 @@ const Dashboard: React.FC = () => {
               {groupedTransactions[date].map((t: Transaction, index: number) => (
                 <div 
                   key={t.id} 
-                  className={`py-2 px-4 flex justify-between items-center transition-colors hover:bg-gray-50/80 active:bg-gray-100/50 ${index !== 0 ? 'border-t border-gray-50' : ''}`}
+                  className={`py-2 px-4 flex justify-between items-center gap-4 transition-colors hover:bg-gray-50/80 active:bg-gray-100/50 ${index !== 0 ? 'border-t border-gray-50' : ''}`}
                 >
                   <div className="flex items-center space-x-3">
                     <div className={`p-1.5 rounded-xl shadow-sm ${
@@ -887,11 +952,31 @@ const Dashboard: React.FC = () => {
                       {t.note && <p className="text-[10px] text-gray-500 mt-0.5 font-medium">{t.note}</p>}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className={`font-black text-sm tracking-tight ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                      {t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString()}
-                    </p>
-                    <p className="text-[8px] text-gray-400 font-bold uppercase tracking-wider">THB</p>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <p className={`font-black text-sm tracking-tight ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                        {t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString()}
+                      </p>
+                      <p className="text-[8px] text-gray-400 font-bold uppercase tracking-wider">THB</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(t)}
+                        className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                        aria-label="Edit transaction"
+                      >
+                        <PencilLine className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTransaction(t)}
+                        className="p-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                        aria-label="Delete transaction"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -999,6 +1084,115 @@ const Dashboard: React.FC = () => {
         <Plus className="w-10 h-10 relative z-10" />
       </button>
 
+      {/* Edit Transaction Modal */}
+      {isEditModalOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-in fade-in duration-200"
+          onClick={closeEditModal}
+        >
+          <div
+            className="bg-white rounded-[2.5rem] p-8 max-w-lg w-full shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-gray-900 font-black text-2xl">แก้ไขรายการ</h3>
+                <p className="text-gray-500 text-sm font-medium">ปรับข้อมูลแล้วบันทึกทับรายการเดิม</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeEditModal}
+                className="p-2 rounded-xl bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div className="flex bg-gray-100 p-1 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setEditForm((prev) => ({ ...prev, type: 'expense' }))}
+                  className={`flex-1 py-3 rounded-xl font-bold transition-all ${
+                    editForm.type === 'expense' ? 'bg-red-500 text-white shadow' : 'text-gray-500'
+                  }`}
+                >
+                  รายจ่าย
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditForm((prev) => ({ ...prev, type: 'income' }))}
+                  className={`flex-1 py-3 rounded-xl font-bold transition-all ${
+                    editForm.type === 'income' ? 'bg-green-500 text-white shadow' : 'text-gray-500'
+                  }`}
+                >
+                  รายรับ
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">จำนวนเงิน</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={editForm.amount}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, amount: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">หมวดหมู่</label>
+                <input
+                  type="text"
+                  value={editForm.category}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, category: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">บันทึกเพิ่มเติม</label>
+                <textarea
+                  value={editForm.note}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, note: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 h-28"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">วันเวลา</label>
+                <input
+                  type="datetime-local"
+                  value={editForm.date}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, date: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="flex-1 py-3.5 rounded-2xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3.5 rounded-2xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  บันทึก
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Logout Confirmation Modal */}
       {isLogoutModalOpen && (
