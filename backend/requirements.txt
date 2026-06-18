@@ -1,0 +1,10 @@
+fastapi[all]
+sqlalchemy
+sqlalchemy-utils
+pydantic
+pydantic-settings
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+alembic
+sqlite-utils
