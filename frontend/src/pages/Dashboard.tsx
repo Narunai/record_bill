@@ -10,6 +10,7 @@ interface Transaction {
   id: string;
   type: 'income' | 'expense';
   amount: number;
+  amount_text?: string | null;
   category: string;
   note?: string;
   date: string;
@@ -44,6 +45,10 @@ const Dashboard: React.FC = () => {
   });
   const navigate = useNavigate();
 
+  const formatAmountDisplay = (transaction: Transaction) => {
+    return transaction.amount_text?.trim() || transaction.amount.toLocaleString();
+  };
+
   const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
   useEffect(() => {
@@ -71,7 +76,7 @@ const Dashboard: React.FC = () => {
     setEditingTransactionId(transaction.id);
     setEditForm({
       type: transaction.type,
-      amount: transaction.amount.toString(),
+      amount: transaction.amount_text?.trim() || transaction.amount.toString(),
       category: transaction.category,
       note: transaction.note ?? '',
       date: format(new Date(transaction.date), "yyyy-MM-dd'T'HH:mm"),
@@ -91,7 +96,8 @@ const Dashboard: React.FC = () => {
     try {
       await api.put(`/transactions/${editingTransactionId}`, {
         type: editForm.type,
-        amount: parseFloat(editForm.amount),
+        amount: editForm.amount,
+        amount_text: editForm.amount.replace(/\s+/g, ''),
         category: editForm.category,
         note: editForm.note,
         date: new Date(editForm.date).toISOString(),
@@ -367,7 +373,7 @@ const Dashboard: React.FC = () => {
       format(new Date(t.date), 'dd/MM/yyyy HH:mm', { locale: th }),
       t.type === 'income' ? 'รายรับ' : 'รายจ่าย',
       t.category,
-      t.amount.toString(),
+      formatAmountDisplay(t),
       t.note || ''
     ]);
 
@@ -958,7 +964,7 @@ const Dashboard: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <div className="text-right">
                       <p className={`font-black text-sm tracking-tight ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                        {t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString()}
+                        {t.type === 'income' ? '+' : '-'}{formatAmountDisplay(t)}
                       </p>
                       <p className="text-[8px] text-gray-400 font-bold uppercase tracking-wider">THB</p>
                     </div>

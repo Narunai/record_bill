@@ -63,7 +63,16 @@ const Login: React.FC = () => {
         }
       }
     } catch (err: any) {
-      setError(err.message || 'เกิดข้อผิดพลาด');
+      const message = err?.message || err?.error_description || err?.msg || 'เกิดข้อผิดพลาด';
+      if (message.toLowerCase().includes('email not confirmed')) {
+        setError('อีเมลยังไม่ได้ยืนยัน ให้เปิดอีเมลจาก Supabase แล้วกดลิงก์ยืนยัน');
+        return;
+      }
+      if (message.toLowerCase().includes('invalid login credentials')) {
+        setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+        return;
+      }
+      setError(message);
     }
   };
 

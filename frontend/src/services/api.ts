@@ -12,6 +12,7 @@ type TransactionRow = {
   user_id: string;
   type: TransactionType;
   amount: number;
+  amount_text: string | null;
   category: string;
   note: string | null;
   date: string;
@@ -19,10 +20,11 @@ type TransactionRow = {
 
 type TransactionPayload = {
   type: TransactionType;
-  amount: number;
+  amount: number | string;
   category: string;
   note?: string;
   date?: string;
+  amount_text?: string;
 };
 
 function createHttpError(status: number, detail: string) {
@@ -79,13 +81,39 @@ function dateRangeForQuery(searchParams: URLSearchParams) {
   return null;
 }
 
+function normalizeAmount(amount: number | string, amountText?: string) {
+  const raw = (amountText ?? String(amount)).replace(/\s+/g, '');
+  if (!raw) {
+    throw createHttpError(400, 'Missing amount');
+  }
+
+  const parts = raw.split('+').map((part) => part.trim()).filter(Boolean);
+  const values = parts.map((part) => {
+    const value = Number(part);
+    if (!Number.isFinite(value)) {
+      throw createHttpError(400, `Invalid amount part: ${part}`);
+    }
+    return value;
+  });
+
+  if (values.length === 0) {
+    throw createHttpError(400, 'Missing amount');
+  }
+
+  const total = values.reduce((sum, value) => sum + value, 0);
+  return {
+    total,
+    display: raw,
+  };
+}
+
 async function fetchTransactions(path: string): Promise<ApiResponse<TransactionRow[]>> {
   const { searchParams } = parsePath(path);
   const userId = await getCurrentUserId();
 
   let query = supabase
     .from('transactions')
-    .select('id,user_id,type,amount,category,note,date')
+    .select('id,user_id,type,amount,amount_text,category,note,date')
     .eq('user_id', userId);
 
   const range = dateRangeForQuery(searchParams);
@@ -135,17 +163,19 @@ async function fetchFrequent(path: string): Promise<ApiResponse<{ category: stri
 
 async function insertTransaction(payload: TransactionPayload): Promise<ApiResponse<TransactionRow>> {
   const userId = await getCurrentUserId();
+  const { total, display } = normalizeAmount(payload.amount, payload.amount_text);
   const { data, error } = await supabase
     .from('transactions')
     .insert({
       user_id: userId,
       type: payload.type,
-      amount: payload.amount,
+      amount: total,
+      amount_text: display,
       category: payload.category,
       note: payload.note || null,
       date: payload.date ?? new Date().toISOString(),
     })
-    .select('id,user_id,type,amount,category,note,date')
+    .select('id,user_id,type,amount,amount_text,category,note,date')
     .single();
 
   if (error) {
@@ -163,8 +193,12 @@ async function updateTransaction(path: string, payload: Partial<TransactionPaylo
   }
 
   const updateData: Record<string, unknown> = {};
+  if (payload.amount !== undefined) {
+    const { total, display } = normalizeAmount(payload.amount, payload.amount_text);
+    updateData.amount = total;
+    updateData.amount_text = display;
+  }
   if (payload.type) updateData.type = payload.type;
-  if (payload.amount !== undefined) updateData.amount = payload.amount;
   if (payload.category !== undefined) updateData.category = payload.category;
   if (payload.note !== undefined) updateData.note = payload.note || null;
   if (payload.date !== undefined) updateData.date = payload.date;
@@ -173,7 +207,7 @@ async function updateTransaction(path: string, payload: Partial<TransactionPaylo
     .from('transactions')
     .update(updateData)
     .eq('id', transactionId)
-    .select('id,user_id,type,amount,category,note,date')
+    .select('id,user_id,type,amount,amount_text,category,note,date')
     .single();
 
   if (error) {

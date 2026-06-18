@@ -31,7 +31,8 @@ const AddTransaction: React.FC = () => {
     try {
       await api.post('/transactions/', {
         type,
-        amount: parseFloat(amount),
+        amount,
+        amount_text: amount.replace(/\s+/g, ''),
         category,
         note,
         date: format(new Date(), "yyyy-MM-dd'T'HH:mm:ss")
@@ -89,9 +90,9 @@ const AddTransaction: React.FC = () => {
           <div className="relative flex items-end">
             <span className={`text-4xl font-black mb-3 mr-3 transition-colors duration-500 ${type === 'expense' ? 'text-red-500' : 'text-green-500'}`}>฿</span>
             <input
-              type="number"
-              inputMode="decimal"
-              placeholder="0.00"
+              type="text"
+              inputMode="numeric"
+              placeholder="200+500+1000"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="w-full text-6xl font-black bg-transparent focus:outline-none transition-all placeholder:text-gray-100 tracking-tighter"
@@ -99,6 +100,9 @@ const AddTransaction: React.FC = () => {
               required
             />
           </div>
+          <p className="text-xs font-medium text-gray-400 mt-2">
+            พิมพ์หลายรายการด้วย `+` เช่น `200+500+1000`
+          </p>
         </div>
 
         {/* Category Input & Frequent Buttons */}
