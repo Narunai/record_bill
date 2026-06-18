@@ -39,7 +39,6 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         env:
-          VITE_API_URL: https://recordbill-production.up.railway.app
           VITE_SUPABASE_URL: https://qqsrguicykcvqvxoysyn.supabase.co
           VITE_SUPABASE_ANON_KEY: sb_publishable_1zkRk0f9ZIHnI6gGAy4kFQ_7OKH9Tf0
         run: npm run build
