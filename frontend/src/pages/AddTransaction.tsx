@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { ChevronLeft, Save } from 'lucide-react';
-import { format } from 'date-fns';
 
 const AddTransaction: React.FC = () => {
   const [type, setType] = useState<'income' | 'expense'>('expense');
@@ -35,7 +34,7 @@ const AddTransaction: React.FC = () => {
         amount_text: amount,
         category,
         note,
-        date: format(new Date(), "yyyy-MM-dd'T'HH:mm:ss")
+        date: new Date().toISOString(),
       });
       navigate('/');
     } catch (err) {

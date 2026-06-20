@@ -25,11 +25,39 @@ interface TransactionFormState {
 }
 
 const Dashboard: React.FC = () => {
+  const initialTimeZone = typeof window !== 'undefined' ? localStorage.getItem('timezone') || 'Asia/Bangkok' : 'Asia/Bangkok';
+
+  const resolveTZ = (tz: string) => tz === 'Browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : tz;
+
+  const getNowInTZ = (tz: string) => {
+    const resolved = resolveTZ(tz);
+    const now = new Date();
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: resolved,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    const parts = Object.fromEntries(fmt.formatToParts(now).map(p => [p.type, p.value]));
+    return new Date(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day),
+      Number(parts.hour),
+      Number(parts.minute),
+      Number(parts.second)
+    );
+  };
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState<Date>(() => getNowInTZ(initialTimeZone));
   const [viewMode, setViewMode] = useState<'day' | 'month' | 'year'>('day');
-  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedDate, setSelectedDate] = useState<string>(() => format(getNowInTZ(initialTimeZone), 'yyyy-MM-dd'));
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [selectorZoomMode, setSelectorZoomMode] = useState<'day' | 'month' | 'year' | 'decade'>('day');
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -58,8 +86,6 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('timezone', timeZone);
   }, [timeZone]);
-
-  const resolveTZ = (tz: string) => tz === 'Browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : tz;
 
   // Convert an instant (ISO or Date) into a Date object whose fields
   // represent the wall-clock time in `timeZone`. We use Intl.formatToParts
@@ -651,7 +677,7 @@ const Dashboard: React.FC = () => {
                     <select
                       value={timeZone}
                       onChange={(e) => setTimeZone(e.target.value)}
-                      className="ml-2 bg-transparent text-sm text-white/90 border border-white/10 rounded-lg px-2 py-1"
+                        className="ml-2 bg-white/90 text-gray-900 text-sm border border-slate-200 rounded-lg px-2 py-1 outline-none shadow-sm"
                       title="เลือกโซนเวลา"
                     >
                       {timezoneOptions.map(opt => (
