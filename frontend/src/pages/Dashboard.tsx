@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { Plus, Wallet, ArrowUpCircle, ArrowDownCircle, LogOut, Calendar, ChevronLeft, ChevronRight, Download, PencilLine, Trash2, Save, X } from 'lucide-react';
@@ -82,10 +82,23 @@ const Dashboard: React.FC = () => {
   ];
 
   const [timeZone, setTimeZone] = useState<string>(() => localStorage.getItem('timezone') || 'Asia/Bangkok');
+  const [isTZMenuOpen, setIsTZMenuOpen] = useState(false);
+  const timeZoneMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     localStorage.setItem('timezone', timeZone);
   }, [timeZone]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (timeZoneMenuRef.current && !timeZoneMenuRef.current.contains(event.target as Node)) {
+        setIsTZMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Convert an instant (ISO or Date) into a Date object whose fields
   // represent the wall-clock time in `timeZone`. We use Intl.formatToParts
@@ -674,17 +687,37 @@ const Dashboard: React.FC = () => {
                     </span>
                   </button>
 
-                    <select
-                      value={timeZone}
-                      onChange={(e) => setTimeZone(e.target.value)}
-                      className="ml-2 relative bg-white text-gray-900 text-sm border border-slate-200 rounded-full px-3 py-1.5 outline-none shadow-sm appearance-none pr-8"
-                      title="เลือกโซนเวลา"
-                    >
-                      {timezoneOptions.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                    <span className="pointer-events-none absolute right-4 text-gray-400">▾</span>
+                    <div className="ml-2 relative inline-block text-left" ref={timeZoneMenuRef}>
+                      <button
+                        type="button"
+                        onClick={() => setIsTZMenuOpen((prev) => !prev)}
+                        className="inline-flex items-center justify-between gap-2 min-w-[220px] bg-white text-gray-900 text-sm border border-slate-200 rounded-full px-3 py-1.5 shadow-sm hover:border-slate-300 transition-colors"
+                        aria-haspopup="true"
+                        aria-expanded={isTZMenuOpen}
+                        title="เลือกโซนเวลา"
+                      >
+                        <span className="truncate">{timezoneOptions.find(opt => opt.value === timeZone)?.label || timeZone}</span>
+                        <span className="text-gray-400">▾</span>
+                      </button>
+
+                      {isTZMenuOpen && (
+                        <div className="absolute right-0 z-50 mt-2 w-[260px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+                          {timezoneOptions.map((opt) => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => {
+                                setTimeZone(opt.value);
+                                setIsTZMenuOpen(false);
+                              }}
+                              className={`w-full px-4 py-3 text-left text-sm transition-colors ${opt.value === timeZone ? 'bg-slate-100 font-semibold text-slate-900' : 'hover:bg-slate-50 text-slate-700'}`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
                   {isDatePickerOpen && (
                     <div className="absolute top-full mt-2 bg-white text-gray-800 rounded-3xl shadow-2xl p-6 z-50 min-w-[280px] border border-gray-100 animate-in fade-in zoom-in duration-200">
