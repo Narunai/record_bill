@@ -4,7 +4,6 @@ import api from '../services/api';
 import { Plus, Wallet, ArrowUpCircle, ArrowDownCircle, LogOut, Calendar, ChevronLeft, ChevronRight, Download, PencilLine, Trash2, Save, X } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
 import { supabase } from '../lib/supabase';
 
 interface Transaction {
@@ -62,10 +61,29 @@ const Dashboard: React.FC = () => {
 
   const resolveTZ = (tz: string) => tz === 'Browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : tz;
 
+  // Convert an instant (ISO or Date) into a Date object whose fields
+  // represent the wall-clock time in `timeZone`. We use Intl.formatToParts
+  // to get the timezone-local components and construct a Date from them
+  // so `date-fns` formatting (which uses the runtime's locale) shows
+  // the intended timezone values.
   const toZonedDate = (d?: string | Date) => {
     try {
       const tz = resolveTZ(timeZone);
-      return utcToZonedTime(d ? new Date(d) : new Date(), tz);
+      const date = d ? new Date(d) : new Date();
+      const fmt = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+      });
+      const parts = Object.fromEntries(fmt.formatToParts(date).map(p => [p.type, p.value]));
+      const year = Number(parts.year || date.getFullYear());
+      const month = Number(parts.month || (date.getMonth() + 1));
+      const day = Number(parts.day || date.getDate());
+      const hour = Number(parts.hour || date.getHours());
+      const minute = Number(parts.minute || date.getMinutes());
+      const second = Number(parts.second || date.getSeconds());
+      // Construct a Date in the runtime's local zone with the timezone-local fields
+      return new Date(year, month - 1, day, hour, minute, second);
     } catch (e) {
       return new Date(d ? new Date(d) : new Date());
     }
@@ -124,9 +142,38 @@ const Dashboard: React.FC = () => {
     if (!editingTransactionId || !editForm.amount || !editForm.category || !editForm.date) return;
 
     try {
-      // interpret editForm.date as being in the selected timezone, convert to UTC
+      // interpret editForm.date (e.g. "YYYY-MM-DDTHH:mm") as wall-clock in the selected timezone
       const tz = resolveTZ(timeZone);
-      const utcDate = zonedTimeToUtc(editForm.date, tz).toISOString();
+      const [datePart, timePart] = editForm.date.split('T');
+      const [y, m, dStr] = datePart.split('-').map(Number);
+      const [hh, mm] = (timePart || '').split(':').map(Number);
+
+      // Create a millisecond value as if those fields were UTC, then
+      // compute the zone offset at that moment and adjust to get the true UTC instant.
+      const asIfUtc = Date.UTC(y, m - 1, dStr, hh || 0, mm || 0, 0);
+
+      const getZoneOffsetMinutes = (timeZoneName: string, referenceDateMs: number) => {
+        const ref = new Date(referenceDateMs);
+        const fmt = new Intl.DateTimeFormat('en-US', {
+          timeZone: timeZoneName,
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        });
+        const parts = Object.fromEntries(fmt.formatToParts(ref).map(p => [p.type, p.value]));
+        const yy = Number(parts.year);
+        const mmn = Number(parts.month);
+        const dd = Number(parts.day);
+        const hh2 = Number(parts.hour);
+        const min2 = Number(parts.minute);
+        const sec2 = Number(parts.second);
+        const asLocalUtc = Date.UTC(yy, mmn - 1, dd, hh2, min2, sec2);
+        return (asLocalUtc - ref.getTime()) / 60000; // minutes
+      };
+
+      const offsetMinutes = getZoneOffsetMinutes(tz, asIfUtc);
+      const actualUtcMs = asIfUtc - offsetMinutes * 60 * 1000;
+      const utcDate = new Date(actualUtcMs).toISOString();
+
       await api.put(`/transactions/${editingTransactionId}`, {
         type: editForm.type,
         amount: editForm.amount,
