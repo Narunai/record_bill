@@ -623,19 +623,19 @@ const Dashboard: React.FC = () => {
         <div className="absolute bottom-[-20%] left-[-10%] w-48 h-48 bg-blue-400/20 rounded-full blur-2xl"></div>
 
         <div className="relative z-10">
-          <div className="flex flex-col gap-4 sm:flex-row justify-between items-start sm:items-center mb-8">
-            <div className="flex items-center space-x-2">
+          <div className="flex flex-row items-center justify-between gap-2 mb-8">
+            <div className="flex items-center space-x-2 min-w-fit">
               <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
                 <Wallet className="w-6 h-6" />
               </div>
-              <h1 className="text-xl font-extrabold tracking-tight">Record Bil</h1>
+              <h1 className="text-xl font-extrabold tracking-tight whitespace-nowrap">Record Bil</h1>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1">
               <div className="relative inline-block text-left" ref={timeZoneMenuRef}>
                 <button
                   type="button"
                   onClick={() => setIsTZMenuOpen((prev) => !prev)}
-                  className="inline-flex items-center justify-between gap-1.5 max-w-[140px] bg-white text-gray-900 text-xs border border-slate-200 rounded-full px-2.5 py-1 shadow-sm hover:border-slate-300 transition-colors"
+                  className="inline-flex items-center justify-between gap-1 max-w-[120px] bg-white text-gray-900 text-xs border border-slate-200 rounded-full px-2 py-0.5 shadow-sm hover:border-slate-300 transition-colors"
                   aria-haspopup="true"
                   aria-expanded={isTZMenuOpen}
                   title="เลือกโซนเวลา"
@@ -662,19 +662,19 @@ const Dashboard: React.FC = () => {
                   </div>
                 )}
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => setIsDownloadModalOpen(true)}
-                  className="bg-white/10 p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-90 border border-white/10 backdrop-blur-sm"
+                  className="bg-white/10 p-1.5 hover:bg-white/20 rounded-lg transition-all active:scale-90 border border-white/10 backdrop-blur-sm"
                   title="ดาวน์โหลด CSV"
                 >
-                  <Download className="w-5 h-5" />
+                  <Download className="w-4 h-4" />
                 </button>
                 <button 
                   onClick={() => setIsLogoutModalOpen(true)} 
-                  className="bg-white/10 p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-90 border border-white/10 backdrop-blur-sm"
+                  className="bg-white/10 p-1.5 hover:bg-white/20 rounded-lg transition-all active:scale-90 border border-white/10 backdrop-blur-sm"
                 >
-                  <LogOut className="w-5 h-5" />
+                  <LogOut className="w-4 h-4" />
                 </button>
               </div>
             </div>
