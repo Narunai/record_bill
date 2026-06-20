@@ -630,7 +630,7 @@ const Dashboard: React.FC = () => {
               </div>
               <h1 className="text-xl font-extrabold tracking-tight">Record Bil</h1>
             </div>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+            <div className="flex flex-wrap items-center gap-2">
               <div className="relative inline-block text-left" ref={timeZoneMenuRef}>
                 <button
                   type="button"
