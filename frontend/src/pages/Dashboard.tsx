@@ -623,27 +623,60 @@ const Dashboard: React.FC = () => {
         <div className="absolute bottom-[-20%] left-[-10%] w-48 h-48 bg-blue-400/20 rounded-full blur-2xl"></div>
 
         <div className="relative z-10">
-          <div className="flex justify-between items-center mb-8">
+          <div className="flex flex-col gap-4 sm:flex-row justify-between items-start sm:items-center mb-8">
             <div className="flex items-center space-x-2">
               <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
                 <Wallet className="w-6 h-6" />
               </div>
               <h1 className="text-xl font-extrabold tracking-tight">Record Bil</h1>
             </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setIsDownloadModalOpen(true)}
-                className="bg-white/10 p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-90 border border-white/10 backdrop-blur-sm"
-                title="ดาวน์โหลด CSV"
-              >
-                <Download className="w-5 h-5" />
-              </button>
-              <button 
-                onClick={() => setIsLogoutModalOpen(true)} 
-                className="bg-white/10 p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-90 border border-white/10 backdrop-blur-sm"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+              <div className="relative inline-block text-left" ref={timeZoneMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsTZMenuOpen((prev) => !prev)}
+                  className="inline-flex items-center justify-between gap-2 min-w-[220px] bg-white text-gray-900 text-sm border border-slate-200 rounded-full px-3 py-1.5 shadow-sm hover:border-slate-300 transition-colors"
+                  aria-haspopup="true"
+                  aria-expanded={isTZMenuOpen}
+                  title="เลือกโซนเวลา"
+                >
+                  <span className="truncate">{timezoneOptions.find(opt => opt.value === timeZone)?.label || timeZone}</span>
+                  <span className="text-gray-400">▾</span>
+                </button>
+
+                {isTZMenuOpen && (
+                  <div className="absolute right-0 z-50 mt-2 w-[260px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+                    {timezoneOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          setTimeZone(opt.value);
+                          setIsTZMenuOpen(false);
+                        }}
+                        className={`w-full px-4 py-3 text-left text-sm transition-colors ${opt.value === timeZone ? 'bg-slate-100 font-semibold text-slate-900' : 'hover:bg-slate-50 text-slate-700'}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setIsDownloadModalOpen(true)}
+                  className="bg-white/10 p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-90 border border-white/10 backdrop-blur-sm"
+                  title="ดาวน์โหลด CSV"
+                >
+                  <Download className="w-5 h-5" />
+                </button>
+                <button 
+                  onClick={() => setIsLogoutModalOpen(true)} 
+                  className="bg-white/10 p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-90 border border-white/10 backdrop-blur-sm"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           </div>
           
@@ -686,38 +719,6 @@ const Dashboard: React.FC = () => {
                       }
                     </span>
                   </button>
-
-                    <div className="ml-2 relative inline-block text-left" ref={timeZoneMenuRef}>
-                      <button
-                        type="button"
-                        onClick={() => setIsTZMenuOpen((prev) => !prev)}
-                        className="inline-flex items-center justify-between gap-2 min-w-[220px] bg-white text-gray-900 text-sm border border-slate-200 rounded-full px-3 py-1.5 shadow-sm hover:border-slate-300 transition-colors"
-                        aria-haspopup="true"
-                        aria-expanded={isTZMenuOpen}
-                        title="เลือกโซนเวลา"
-                      >
-                        <span className="truncate">{timezoneOptions.find(opt => opt.value === timeZone)?.label || timeZone}</span>
-                        <span className="text-gray-400">▾</span>
-                      </button>
-
-                      {isTZMenuOpen && (
-                        <div className="absolute right-0 z-50 mt-2 w-[260px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
-                          {timezoneOptions.map((opt) => (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              onClick={() => {
-                                setTimeZone(opt.value);
-                                setIsTZMenuOpen(false);
-                              }}
-                              className={`w-full px-4 py-3 text-left text-sm transition-colors ${opt.value === timeZone ? 'bg-slate-100 font-semibold text-slate-900' : 'hover:bg-slate-50 text-slate-700'}`}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
 
                   {isDatePickerOpen && (
                     <div className="absolute top-full mt-2 bg-white text-gray-800 rounded-3xl shadow-2xl p-6 z-50 min-w-[280px] border border-gray-100 animate-in fade-in zoom-in duration-200">
