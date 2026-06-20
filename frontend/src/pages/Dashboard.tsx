@@ -635,13 +635,13 @@ const Dashboard: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsTZMenuOpen((prev) => !prev)}
-                  className="inline-flex items-center justify-between gap-2 min-w-[220px] bg-white text-gray-900 text-sm border border-slate-200 rounded-full px-3 py-1.5 shadow-sm hover:border-slate-300 transition-colors"
+                  className="inline-flex items-center justify-between gap-1.5 max-w-[140px] bg-white text-gray-900 text-xs border border-slate-200 rounded-full px-2.5 py-1 shadow-sm hover:border-slate-300 transition-colors"
                   aria-haspopup="true"
                   aria-expanded={isTZMenuOpen}
                   title="เลือกโซนเวลา"
                 >
-                  <span className="truncate">{timezoneOptions.find(opt => opt.value === timeZone)?.label || timeZone}</span>
-                  <span className="text-gray-400">▾</span>
+                  <span className="truncate text-xs">{timezoneOptions.find(opt => opt.value === timeZone)?.label?.split(' ')[0] || timeZone}</span>
+                  <span className="text-gray-400 text-xs">▾</span>
                 </button>
 
                 {isTZMenuOpen && (
