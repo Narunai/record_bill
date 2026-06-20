@@ -677,13 +677,14 @@ const Dashboard: React.FC = () => {
                     <select
                       value={timeZone}
                       onChange={(e) => setTimeZone(e.target.value)}
-                        className="ml-2 bg-white/90 text-gray-900 text-sm border border-slate-200 rounded-lg px-2 py-1 outline-none shadow-sm"
+                      className="ml-2 relative bg-white text-gray-900 text-sm border border-slate-200 rounded-full px-3 py-1.5 outline-none shadow-sm appearance-none pr-8"
                       title="เลือกโซนเวลา"
                     >
                       {timezoneOptions.map(opt => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
                     </select>
+                    <span className="pointer-events-none absolute right-4 text-gray-400">▾</span>
 
                   {isDatePickerOpen && (
                     <div className="absolute top-full mt-2 bg-white text-gray-800 rounded-3xl shadow-2xl p-6 z-50 min-w-[280px] border border-gray-100 animate-in fade-in zoom-in duration-200">
