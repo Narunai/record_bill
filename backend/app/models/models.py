@@ -24,4 +24,5 @@ class Transaction(Base):
     amount = Column(Float)
     category = Column(String)
     note = Column(String, nullable=True)
-    date = Column(DateTime(timezone=True), default=lambda: datetime.now(THAILAND_TZ))
+    # Store timestamps as timezone-aware UTC by default
+    date = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from ..database import get_db
 from ..models import models
 from ..schemas import schemas
@@ -16,8 +16,18 @@ def create_transaction(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    data = transaction.dict()
+    # Normalize date to UTC if provided
+    if data.get('date') is not None:
+        dt = data['date']
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+        data['date'] = dt
+
     db_transaction = models.Transaction(
-        **transaction.dict(),
+        **data,
         user_id=current_user.id
     )
     db.add(db_transaction)
@@ -44,6 +54,15 @@ def update_transaction(
         raise HTTPException(status_code=404, detail="Transaction not found")
 
     update_data = transaction.dict(exclude_unset=True)
+    # Normalize date to UTC if provided in update
+    if 'date' in update_data and update_data['date'] is not None:
+        dt = update_data['date']
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+        update_data['date'] = dt
+
     for field, value in update_data.items():
         setattr(db_transaction, field, value)
 
