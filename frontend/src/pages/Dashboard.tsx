@@ -4,6 +4,7 @@ import api from '../services/api';
 import { Plus, Wallet, ArrowUpCircle, ArrowDownCircle, LogOut, Calendar, ChevronLeft, ChevronRight, Download, PencilLine, Trash2, Save, X } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
 import { th } from 'date-fns/locale';
+import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
 import { supabase } from '../lib/supabase';
 
 interface Transaction {
@@ -44,6 +45,31 @@ const Dashboard: React.FC = () => {
     date: '',
   });
   const navigate = useNavigate();
+  const timezoneOptions = [
+    { value: 'Asia/Bangkok', label: 'Asia/Bangkok (ไทย)' },
+    { value: 'UTC', label: 'UTC' },
+    { value: 'Browser', label: 'Browser Local' },
+    { value: 'America/New_York', label: 'America/New_York' },
+    { value: 'Europe/London', label: 'Europe/London' },
+    { value: 'Asia/Tokyo', label: 'Asia/Tokyo' },
+  ];
+
+  const [timeZone, setTimeZone] = useState<string>(() => localStorage.getItem('timezone') || 'Asia/Bangkok');
+
+  useEffect(() => {
+    localStorage.setItem('timezone', timeZone);
+  }, [timeZone]);
+
+  const resolveTZ = (tz: string) => tz === 'Browser' ? Intl.DateTimeFormat().resolvedOptions().timeZone : tz;
+
+  const toZonedDate = (d?: string | Date) => {
+    try {
+      const tz = resolveTZ(timeZone);
+      return utcToZonedTime(d ? new Date(d) : new Date(), tz);
+    } catch (e) {
+      return new Date(d ? new Date(d) : new Date());
+    }
+  };
 
   const formatAmountDisplay = (transaction: Transaction) => {
     return transaction.amount_text?.trim() || transaction.amount.toLocaleString();
@@ -83,7 +109,7 @@ const Dashboard: React.FC = () => {
       amount: transaction.amount_text?.trim() || transaction.amount.toString(),
       category: transaction.category,
       note: transaction.note ?? '',
-      date: format(new Date(transaction.date), "yyyy-MM-dd'T'HH:mm"),
+      date: format(toZonedDate(transaction.date), "yyyy-MM-dd'T'HH:mm"),
     });
     setIsEditModalOpen(true);
   };
@@ -98,13 +124,16 @@ const Dashboard: React.FC = () => {
     if (!editingTransactionId || !editForm.amount || !editForm.category || !editForm.date) return;
 
     try {
+      // interpret editForm.date as being in the selected timezone, convert to UTC
+      const tz = resolveTZ(timeZone);
+      const utcDate = zonedTimeToUtc(editForm.date, tz).toISOString();
       await api.put(`/transactions/${editingTransactionId}`, {
         type: editForm.type,
         amount: editForm.amount,
         amount_text: editForm.amount,
         category: editForm.category,
         note: editForm.note,
-        date: new Date(editForm.date).toISOString(),
+        date: utcDate,
       });
       closeEditModal();
       await fetchData();
@@ -357,16 +386,16 @@ const Dashboard: React.FC = () => {
       filename = 'transactions_all.csv';
     } else {
       if (viewMode === 'day') {
-        data = transactions.filter(t => format(new Date(t.date), 'yyyy-MM-dd') === selectedDate);
+        data = transactions.filter(t => format(toZonedDate(t.date), 'yyyy-MM-dd') === selectedDate);
         filename = `transactions_${selectedDate}.csv`;
       } else if (viewMode === 'month') {
         data = transactions.filter(t => {
-          const d = new Date(t.date);
+          const d = toZonedDate(t.date);
           return d.getMonth() === currentDate.getMonth() && d.getFullYear() === currentDate.getFullYear();
         });
         filename = `transactions_${format(currentDate, 'yyyy-MM', { locale: th })}.csv`;
       } else {
-        data = transactions.filter(t => new Date(t.date).getFullYear() === currentDate.getFullYear());
+        data = transactions.filter(t => toZonedDate(t.date).getFullYear() === currentDate.getFullYear());
         filename = `transactions_${currentDate.getFullYear()}.csv`;
       }
       data = [...data].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -374,7 +403,7 @@ const Dashboard: React.FC = () => {
 
     const header = ['วันที่', 'ประเภท', 'หมวดหมู่', 'จำนวนเงิน', 'หมายเหตุ'];
     const rows = data.map(t => [
-      format(new Date(t.date), 'dd/MM/yyyy HH:mm', { locale: th }),
+      format(toZonedDate(t.date), 'dd/MM/yyyy HH:mm', { locale: th }),
       t.type === 'income' ? 'รายรับ' : 'รายจ่าย',
       t.category,
       formatAmountDisplay(t),
@@ -399,9 +428,9 @@ const Dashboard: React.FC = () => {
 
   // Group transactions by date for day view
   const groupedTransactions = transactions.filter(t => 
-    format(new Date(t.date), 'yyyy-MM-dd') === selectedDate
+    format(toZonedDate(t.date), 'yyyy-MM-dd') === selectedDate
   ).reduce((groups: any, transaction) => {
-    const date = format(new Date(transaction.date), 'yyyy-MM-dd');
+    const date = format(toZonedDate(transaction.date), 'yyyy-MM-dd');
     if (!groups[date]) groups[date] = [];
     groups[date].push(transaction);
     return groups;
@@ -409,10 +438,10 @@ const Dashboard: React.FC = () => {
 
   // For month view: group by date to show daily totals of the current month
   const monthlyDailyTotals = transactions.filter(t => {
-    const d = new Date(t.date);
+    const d = toZonedDate(t.date);
     return d.getMonth() === currentDate.getMonth() && d.getFullYear() === currentDate.getFullYear();
   }).reduce((acc: any, t) => {
-    const date = format(new Date(t.date), 'yyyy-MM-dd');
+    const date = format(toZonedDate(t.date), 'yyyy-MM-dd');
     if (!acc[date]) acc[date] = { income: 0, expense: 0 };
     if (t.type === 'income') acc[date].income += t.amount;
     else acc[date].expense += t.amount;
@@ -421,9 +450,9 @@ const Dashboard: React.FC = () => {
 
   // For year view: group by month of the current year
   const yearlyMonthlyTotals = transactions.filter(t => 
-    new Date(t.date).getFullYear() === currentDate.getFullYear()
+    toZonedDate(t.date).getFullYear() === currentDate.getFullYear()
   ).reduce((acc: any, t) => {
-    const month = new Date(t.date).getMonth();
+    const month = toZonedDate(t.date).getMonth();
     if (!acc[month]) acc[month] = { income: 0, expense: 0 };
     if (t.type === 'income') acc[month].income += t.amount;
     else acc[month].expense += t.amount;
@@ -436,7 +465,7 @@ const Dashboard: React.FC = () => {
     let expense = 0;
     
     transactions.forEach(t => {
-      const d = new Date(t.date);
+      const d = toZonedDate(t.date);
       if (viewMode === 'day') {
         // Daily summary: filter by selectedDate
         const dateStr = format(d, 'yyyy-MM-dd');
@@ -464,7 +493,7 @@ const Dashboard: React.FC = () => {
 
   // Derived daily totals for Day selector grid
   const dailyTotals = transactions.reduce((acc: Record<string, { income: number; expense: number }>, t) => {
-    const dateStr = format(new Date(t.date), 'yyyy-MM-dd');
+    const dateStr = format(toZonedDate(t.date), 'yyyy-MM-dd');
     if (!acc[dateStr]) acc[dateStr] = { income: 0, expense: 0 };
     if (t.type === 'income') acc[dateStr].income += t.amount;
     else acc[dateStr].expense += t.amount;
@@ -473,9 +502,9 @@ const Dashboard: React.FC = () => {
 
   // Derived monthly totals for Month selector grid
   const monthlyTotals = transactions.filter(t => 
-    new Date(t.date).getFullYear() === currentDate.getFullYear()
+    toZonedDate(t.date).getFullYear() === currentDate.getFullYear()
   ).reduce((acc: Record<number, { income: number; expense: number }>, t) => {
-    const month = new Date(t.date).getMonth();
+    const month = toZonedDate(t.date).getMonth();
     if (!acc[month]) acc[month] = { income: 0, expense: 0 };
     if (t.type === 'income') acc[month].income += t.amount;
     else acc[month].expense += t.amount;
@@ -484,7 +513,7 @@ const Dashboard: React.FC = () => {
 
   // Derived yearly totals for Year selector grid
   const yearlyTotals = transactions.reduce((acc: Record<number, { income: number; expense: number }>, t) => {
-    const year = new Date(t.date).getFullYear();
+    const year = toZonedDate(t.date).getFullYear();
     if (!acc[year]) acc[year] = { income: 0, expense: 0 };
     if (t.type === 'income') acc[year].income += t.amount;
     else acc[year].expense += t.amount;
@@ -564,13 +593,24 @@ const Dashboard: React.FC = () => {
                     <Calendar className="w-5 h-5 text-blue-200" />
                     <span className="text-lg font-bold">
                       {viewMode === 'day' 
-                        ? format(new Date(selectedDate), 'dd MMMM yyyy', { locale: th })
+                        ? format(toZonedDate(selectedDate), 'dd MMMM yyyy', { locale: th })
                         : viewMode === 'month'
                         ? format(currentDate, 'MMMM yyyy', { locale: th })
                         : format(currentDate, 'yyyy', { locale: th })
                       }
                     </span>
                   </button>
+
+                    <select
+                      value={timeZone}
+                      onChange={(e) => setTimeZone(e.target.value)}
+                      className="ml-2 bg-transparent text-sm text-white/90 border border-white/10 rounded-lg px-2 py-1"
+                      title="เลือกโซนเวลา"
+                    >
+                      {timezoneOptions.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
 
                   {isDatePickerOpen && (
                     <div className="absolute top-full mt-2 bg-white text-gray-800 rounded-3xl shadow-2xl p-6 z-50 min-w-[280px] border border-gray-100 animate-in fade-in zoom-in duration-200">
@@ -882,7 +922,7 @@ const Dashboard: React.FC = () => {
                   let decIncome = 0;
                   let decExpense = 0;
                   transactions.forEach(t => {
-                    const y = new Date(t.date).getFullYear();
+                    const y = toZonedDate(t.date).getFullYear();
                     if (y >= dec && y <= dec + 9) {
                       if (t.type === 'income') decIncome += t.amount;
                       else decExpense += t.amount;
@@ -942,7 +982,7 @@ const Dashboard: React.FC = () => {
           <div key={date} className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex justify-between items-center mb-4 ml-2">
               <h3 className="text-gray-900 font-black text-lg">
-                {format(new Date(date), 'dd MMMM yyyy', { locale: th })}
+                {format(toZonedDate(date), 'dd MMMM yyyy', { locale: th })}
               </h3>
               <div className="bg-gray-200/50 h-[1px] flex-1 mx-4"></div>
             </div>
@@ -1016,12 +1056,12 @@ const Dashboard: React.FC = () => {
                   className={`py-2 px-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors ${index !== 0 ? 'border-t border-gray-50' : ''}`}
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-50 rounded-xl flex flex-col items-center justify-center border border-blue-100">
-                      <span className="text-[7px] font-bold text-blue-400 uppercase">{format(new Date(date), 'EEE', { locale: th })}</span>
-                      <span className="text-xs font-black text-blue-600 leading-none">{format(new Date(date), 'd')}</span>
+                      <div className="w-8 h-8 bg-blue-50 rounded-xl flex flex-col items-center justify-center border border-blue-100">
+                      <span className="text-[7px] font-bold text-blue-400 uppercase">{format(toZonedDate(date), 'EEE', { locale: th })}</span>
+                      <span className="text-xs font-black text-blue-600 leading-none">{format(toZonedDate(date), 'd')}</span>
                     </div>
                     <div>
-                      <p className="font-bold text-gray-900 text-sm leading-tight">{format(new Date(date), 'd MMMM', { locale: th })}</p>
+                      <p className="font-bold text-gray-900 text-sm leading-tight">{format(toZonedDate(date), 'd MMMM', { locale: th })}</p>
                       <p className="text-[8px] text-gray-400 font-bold uppercase tracking-widest leading-none mt-0.5">คลิกเพื่อดูรายละเอียด</p>
                     </div>
                   </div>
@@ -1265,7 +1305,7 @@ const Dashboard: React.FC = () => {
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">ช่วงปัจจุบัน</p>
               <p className="text-gray-700 font-bold text-sm">
                 {viewMode === 'day'
-                  ? format(new Date(selectedDate), 'dd MMMM yyyy', { locale: th })
+                  ? format(toZonedDate(selectedDate), 'dd MMMM yyyy', { locale: th })
                   : viewMode === 'month'
                   ? format(currentDate, 'MMMM yyyy', { locale: th })
                   : `ปี ${currentDate.getFullYear() + 543}`}
